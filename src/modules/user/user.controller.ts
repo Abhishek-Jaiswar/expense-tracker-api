@@ -11,7 +11,6 @@ class UserAuthController {
     try {
       const payload = req.body;
 
-      // Validate payload
       const validation = validateRegister.safeParse(payload);
       if (!validation.success) {
         return res.status(400).json({
@@ -24,7 +23,7 @@ class UserAuthController {
 
       return res.status(201).json({
         message: "User registered successfully",
-        data: {
+        user: {
           id: user.id,
           username: user.username,
           email: user.email,
@@ -57,7 +56,7 @@ class UserAuthController {
       return res.status(200).json({
         message: "Login successful",
         data: {
-          username: user.username,
+          id: user.id,
           email: user.email,
         },
       });

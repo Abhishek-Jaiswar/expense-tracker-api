@@ -1,8 +1,7 @@
+import type { User } from "../../@types/user.js";
 import { pool } from "../../configs/db.config.js";
-import {
-  userRepository,
-  type User,
-} from "../../repositories/user/user.repository.js";
+import { userRepository } from "../../repositories/user/user.repository.js";
+
 import type {
   TUserLogin,
   TUserRegister,
@@ -13,6 +12,11 @@ class UserAuthModel {
   static async register(payload: TUserRegister) {
     const client = await pool.connect();
     const { username, password, email, fullname } = payload;
+
+    const user = await userRepository.findByEmail(email);
+    if (user) {
+      throw new Error("Email already in use");
+    }
 
     const SALT_ROUNDS = 10;
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -61,7 +65,7 @@ class UserAuthModel {
 
     try {
       const query = `
-            SELECT username, email
+            SELECT id, email
             FROM users
             WHERE email = $1;
         `;
@@ -76,29 +80,6 @@ class UserAuthModel {
       client.release();
     }
   }
-
-  //   async update(id: string, data: TUserRegister) {
-  //     const updates: string[] = [];
-  //     const values: any[] = [];
-
-  //     if (updates.length === 0) {
-  //       const user = await userRepository.findById(id);
-  //       if (!user) throw new Error("User not found");
-  //       return user;
-  //     }
-
-  //     values.push(id);
-  //     const result = await pool.query<User>(
-  //       `UPDATE users SET ${updates.join(", ")} WHERE id = $${} RETURNING *`,
-  //       values,
-  //     );
-
-  //     if (result.rows.length === 0) {
-  //       throw new Error("User not found");
-  //     }
-
-  //     return result.rows[0]!;
-  //   }
 
   async delete(id: string): Promise<void> {
     const result = await pool.query("DELETE FROM users WHERE id = $1", [id]);
