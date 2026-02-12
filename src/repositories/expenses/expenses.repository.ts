@@ -45,7 +45,7 @@ class ExpenseRepository {
             MIN(expense_amount) as min_amount,
             MAX(expense_amount) as max_amount
           FROM expenses
-          WHERE user_id = $1
+          WHERE user_id = $1  
           GROUP BY user_id;
       `;
 
