@@ -65,7 +65,7 @@ class UserAuthModel {
 
     try {
       const query = `
-            SELECT id, email
+            SELECT id, email, fullname
             FROM users
             WHERE email = $1;
         `;

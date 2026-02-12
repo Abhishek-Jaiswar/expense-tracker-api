@@ -10,6 +10,7 @@ class UserAuthController {
   static async register(req: Request, res: Response) {
     try {
       const payload = req.body;
+      console.log(payload);
 
       const validation = validateRegister.safeParse(payload);
       if (!validation.success) {
@@ -58,6 +59,7 @@ class UserAuthController {
         data: {
           id: user.id,
           email: user.email,
+          fullname: user.fullname,
         },
       });
     } catch (error: any) {

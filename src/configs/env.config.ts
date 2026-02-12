@@ -12,7 +12,7 @@ export const Env = {
   DB_PORT: getEnv("DB_PORT", "5432"),
   DB_PASSWORD: getEnv("DB_PASSWORD", "root"),
 
-  CORS_ORIGIN: getEnv("CORS_ORIGIN", "http://localhost:5174"),
+  CORS_ORIGIN: getEnv("CORS_ORIGIN", "http://localhost:3000"),
 
   JWT_SECRET: getEnv("JWT_SECRET") as string,
   JWT_EXPIRES_IN: getEnv("JWT_EXPIRES_IN") as string,

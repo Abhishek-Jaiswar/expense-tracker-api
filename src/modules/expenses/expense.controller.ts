@@ -5,12 +5,13 @@ import {
 } from "../../utils/validators/expense.validation.js";
 import ExpenseModel from "../../models/expenses/expense.model.js";
 import ExpenseRepository from "../../repositories/expenses/expenses.repository.js";
-import type { ZodUUID } from "zod";
 
 class ExpenseController {
   static async create(req: Request, res: Response) {
     try {
       const payload = req.body;
+      console.log(payload);
+      
       const user_id = req.user?.id;
       const validation = validateExpenses.safeParse(payload);
 
