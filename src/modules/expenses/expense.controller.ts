@@ -1,214 +1,129 @@
 import type { Request, Response } from "express";
+import { AppError } from "../../shared/errors/app-error.js";
 import {
-  validateExpenses,
-  validateExpenseUpdate,
-} from "../../utils/validators/expense.validation.js";
-import ExpenseModel from "../../models/expenses/expense.model.js";
-import ExpenseRepository from "../../repositories/expenses/expenses.repository.js";
+  createExpenseSchema,
+  updateExpenseSchema,
+} from "./expense.schema.js";
+import { expenseService } from "./expense.service.js";
 
 class ExpenseController {
-  static async create(req: Request, res: Response) {
-    try {
-      const payload = req.body;
-      console.log(payload);
-      
-      const user_id = req.user?.id;
-      const validation = validateExpenses.safeParse(payload);
-
-      if (!validation.success) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation failed",
-          errors: validation.error.issues,
-        });
-      }
-
-      validation.data.user_id = (user_id as string) || validation.data.user_id;
-      const expense = await ExpenseModel.create(validation.data);
-
-      return res.status(201).json({
-        success: true,
-        message: "Expense created successfully",
-        expense,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Unexpected server error",
-        error: error,
-      });
+  private getExpenseId(rawExpenseId: string | string[] | undefined) {
+    if (typeof rawExpenseId !== "string" || rawExpenseId.length === 0) {
+      throw new AppError(400, "Expense ID is required");
     }
+
+    return rawExpenseId;
   }
 
-  static async update(req: Request, res: Response) {
-    let { expense_id } = req.params;
-    const payload = req.body;
-    const user_id = req.user?.id;
+  async create(req: Request, res: Response) {
+    const userId = req.user?.id;
 
-    if (!expense_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Expense ID is required",
-      });
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
     }
 
-    const validation = validateExpenseUpdate.safeParse(payload);
+    const validation = createExpenseSchema.safeParse(req.body);
 
     if (!validation.success) {
       return res.status(400).json({
-        success: false,
         message: "Validation failed",
-        errors: validation.error.issues,
+        error: validation.error.issues.map((issue) => issue.message),
       });
     }
 
-    try {
-      const expense = await ExpenseRepository.getById(expense_id as string);
-      if (expense.user_id !== user_id) {
-        return res.status(403).json({
-          success: false,
-          message: "Unauthorized: You can only update your own expenses",
-        });
-      }
+    const payload = validation.data;
+    const expense = await expenseService.create(userId, payload);
 
-      const expenseUpdated = await ExpenseModel.update(
-        expense_id as string,
-        validation.data,
-      );
-      return res.status(200).json({
-        success: true,
-        message: "Expense updated successfully",
-        expense: expenseUpdated,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Unexpected server error",
-        error: error,
-      });
-    }
+    return res.status(201).json({
+      success: true,
+      message: "Expense created successfully",
+      data: expense,
+    });
   }
 
-  static async delete(req: Request, res: Response) {
-    let { expense_id } = req.params;
-    const user_id = req.user?.id;
+  async getAll(req: Request, res: Response) {
+    const userId = req.user?.id;
 
-    if (!expense_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Expense ID is required",
-      });
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
     }
 
-    try {
-      const expense = await ExpenseRepository.getById(expense_id as string);
-      if (expense.user_id !== user_id) {
-        return res.status(403).json({
-          success: false,
-          message: "Unauthorized: You can only delete your own expenses",
-        });
-      }
+    const expenses = await expenseService.getAll(userId);
 
-      await ExpenseModel.delete(expense_id as string);
-      return res.status(200).json({
-        success: true,
-        message: "Expense deleted successfully",
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Unexpected server error",
-        error: error,
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Expenses fetched successfully",
+      count: expenses.length,
+      data: expenses,
+    });
   }
 
-  static async getAll(req: Request, res: Response) {
-    try {
-      const user_id = req.user?.id;
-      const expenses = await ExpenseRepository.getAll(user_id as string);
+  async getById(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const expenseId = this.getExpenseId(req.params.expenseId);
 
-      return res.status(200).json({
-        success: true,
-        message: "Expenses fetched successfully",
-        count: expenses.length,
-        expenses,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Unexpected server error",
-        error: error,
-      });
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
     }
+
+    const expense = await expenseService.getById(userId, expenseId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Expense fetched successfully",
+      data: expense,
+    });
   }
 
-  static async getById(req: Request, res: Response) {
-    let { expense_id } = req.params;
-    const user_id = req.user?.id;
+  async update(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const expenseId = this.getExpenseId(req.params.expenseId);
 
-    if (!expense_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Expense ID is required",
-      });
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
     }
 
-    try {
-      const expense = await ExpenseRepository.getById(expense_id as string);
+    const payload = updateExpenseSchema.parse(req.body);
+    const expense = await expenseService.update(userId, expenseId, payload);
 
-      if (expense.user_id !== user_id) {
-        return res.status(403).json({
-          success: false,
-          message: "Unauthorized: You can only view your own expenses",
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Got 1 Expense successfully",
-        expense,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(404).json({
-        success: false,
-        message: "Expense not found",
-        error: error,
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Expense updated successfully",
+      data: expense,
+    });
   }
 
-  static async getTotalExpenses(req: Request, res: Response) {
-    try {
-      const user_id = req.user?.id;
-      const stats = await ExpenseRepository.getTotalExpenses(user_id as string);
+  async delete(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const expenseId = this.getExpenseId(req.params.expenseId);
 
-      return res.status(200).json({
-        success: true,
-        message: "Expense statistics calculated successfully",
-        data: {
-          user_id: stats?.user_id,
-          expense_count: stats?.expense_count || 0,
-          total_amount: stats?.total_amount || 0,
-          average_amount: stats?.average_amount || 0,
-          min_amount: stats?.min_amount || 0,
-          max_amount: stats?.max_amount || 0,
-        },
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: "Unexpected server error",
-        error: error,
-      });
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
     }
+
+    await expenseService.delete(userId, expenseId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Expense deleted successfully",
+    });
+  }
+
+  async getStats(req: Request, res: Response) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new AppError(401, "Authentication required");
+    }
+
+    const stats = await expenseService.getStats(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Expense statistics calculated successfully",
+      data: stats,
+    });
   }
 }
 
-export default ExpenseController;
+export const expenseController = new ExpenseController();

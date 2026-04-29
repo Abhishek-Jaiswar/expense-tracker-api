@@ -1,22 +1,21 @@
 import type { Response } from "express";
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { Env } from "../configs/env.config.js";
-import type { User } from "../repositories/user/user.repository.js";
+import { Env } from "../../config/env.js";
+import type { AuthUser } from "../../modules/auth/auth.types.js";
 
 const COOKIE_NAME = "access_token";
 const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
 
-export const setJWTCookie = (res: Response, user: User) => {
-  const { id, email } = user;
+export const setJWTCookie = (res: Response, user: AuthUser) => {
   const payload = {
-    id,
-    email,
+    id: user.id,
+    email: user.email,
   };
 
   const options: SignOptions = {
-    expiresIn: Env.JWT_EXPIRES_IN as any,
+    expiresIn: Env.JWT_EXPIRES_IN as NonNullable<SignOptions["expiresIn"]>,
     audience: "user",
-    issuer: "expense",
+    issuer: "expense-tracker-api",
   };
 
   const token = jwt.sign(payload, Env.JWT_SECRET, options);
